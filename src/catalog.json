@@ -1,0 +1,266 @@
+{
+ "items": {
+  "panuelo-rojo": {
+   "price": 20,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Pañuelo rojo"
+  },
+  "panuelo-azul": {
+   "price": 20,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Pañuelo azul"
+  },
+  "panuelo-verde": {
+   "price": 20,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Pañuelo verde"
+  },
+  "bufanda": {
+   "price": 30,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Bufanda de rayas"
+  },
+  "cascabel": {
+   "price": 35,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Collar con cascabel"
+  },
+  "espinas": {
+   "price": 55,
+   "slot": "cuello",
+   "kind": "acc",
+   "name": "Collar de espinas"
+  },
+  "flor": {
+   "price": 25,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Flor de brezo"
+  },
+  "pluma": {
+   "price": 30,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Pluma de arrendajo"
+  },
+  "corona": {
+   "price": 60,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Corona de hojas"
+  },
+  "cuernos": {
+   "price": 70,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Cornamenta de ciervo"
+  },
+  "vikingo": {
+   "price": 85,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Casco vikingo"
+  },
+  "corona-real": {
+   "price": 200,
+   "slot": "cabeza",
+   "kind": "acc",
+   "name": "Corona real"
+  },
+  "gafas": {
+   "price": 40,
+   "slot": "cara",
+   "kind": "acc",
+   "name": "Gafas redondas"
+  },
+  "gafas-oro": {
+   "price": 70,
+   "slot": "cara",
+   "kind": "acc",
+   "name": "Gafas doradas"
+  },
+  "antifaz": {
+   "price": 35,
+   "slot": "cara",
+   "kind": "acc",
+   "name": "Antifaz negro"
+  },
+  "parche": {
+   "price": 30,
+   "slot": "cara",
+   "kind": "acc",
+   "name": "Parche pirata"
+  },
+  "calavera": {
+   "price": 90,
+   "slot": "cara",
+   "kind": "acc",
+   "name": "Máscara de calavera"
+  },
+  "pulseras": {
+   "price": 25,
+   "slot": "patas",
+   "kind": "acc",
+   "name": "Pulseras de cuentas"
+  },
+  "pulseras-oro": {
+   "price": 60,
+   "slot": "patas",
+   "kind": "acc",
+   "name": "Pulseras de oro"
+  },
+  "pulseras-espinas": {
+   "price": 50,
+   "slot": "patas",
+   "kind": "acc",
+   "name": "Pulseras de espinas"
+  },
+  "zurron": {
+   "price": 45,
+   "slot": "espalda",
+   "kind": "acc",
+   "name": "Zurrón de hierbas"
+  },
+  "capa-roja": {
+   "price": 80,
+   "slot": "espalda",
+   "kind": "acc",
+   "name": "Capa roja"
+  },
+  "capa-estrellas": {
+   "price": 150,
+   "slot": "espalda",
+   "kind": "acc",
+   "name": "Capa de estrellas"
+  },
+  "alas-murcielago": {
+   "price": 140,
+   "slot": "espalda",
+   "kind": "acc",
+   "name": "Alas de murciélago"
+  },
+  "alas-hada": {
+   "price": 140,
+   "slot": "espalda",
+   "kind": "acc",
+   "name": "Alas de hada"
+  },
+  "rastro-hojas": {
+   "price": 60,
+   "slot": "magia",
+   "kind": "acc",
+   "name": "Rastro de hojas"
+  },
+  "rastro-fuego": {
+   "price": 90,
+   "slot": "magia",
+   "kind": "acc",
+   "name": "Rastro de fuego"
+  },
+  "rastro": {
+   "price": 120,
+   "slot": "magia",
+   "kind": "acc",
+   "name": "Rastro de estrellas"
+  },
+  "rastro-arcoiris": {
+   "price": 160,
+   "slot": "magia",
+   "kind": "acc",
+   "name": "Rastro arcoíris"
+  },
+  "linternas": {
+   "price": 90,
+   "slot": "campamento",
+   "kind": "acc",
+   "name": "Linternas de luciérnagas"
+  },
+  "banderines": {
+   "price": 70,
+   "slot": "campamento",
+   "kind": "acc",
+   "name": "Banderines del clan"
+  },
+  "baya": {
+   "price": 15,
+   "slot": "objetos",
+   "kind": "consumable",
+   "name": "Baya de pista"
+  },
+  "hierba": {
+   "price": 25,
+   "slot": "objetos",
+   "kind": "consumable",
+   "name": "Hierba del valor"
+  },
+  "fur:plata": {
+   "price": 40,
+   "slot": "look",
+   "kind": "look",
+   "name": "fur:plata"
+  },
+  "fur:azul": {
+   "price": 35,
+   "slot": "look",
+   "kind": "look",
+   "name": "fur:azul"
+  },
+  "fur:canela": {
+   "price": 30,
+   "slot": "look",
+   "kind": "look",
+   "name": "fur:canela"
+  },
+  "pattern:carey": {
+   "price": 45,
+   "slot": "look",
+   "kind": "look",
+   "name": "pattern:carey"
+  },
+  "white:mucho": {
+   "price": 30,
+   "slot": "look",
+   "kind": "look",
+   "name": "white:mucho"
+  },
+  "eyes:cobre": {
+   "price": 25,
+   "slot": "look",
+   "kind": "look",
+   "name": "eyes:cobre"
+  },
+  "eyes:dos": {
+   "price": 50,
+   "slot": "look",
+   "kind": "look",
+   "name": "eyes:dos"
+  }
+ },
+ "free": [
+  "fur:gris",
+  "fur:rojizo",
+  "fur:negro",
+  "fur:crema",
+  "fur:marron",
+  "pattern:liso",
+  "pattern:atigrado",
+  "pattern:moteado",
+  "white:ninguno",
+  "white:poco",
+  "eyes:verde",
+  "eyes:ambar",
+  "eyes:azul",
+  "eyes:avellana"
+ ],
+ "gifts": [
+  "fur:azul",
+  "fur:plata",
+  "fur:canela",
+  "pattern:carey"
+ ]
+}

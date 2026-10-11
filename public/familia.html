@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Familias · WarriorMaths</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Panel sobrio para madres y padres: columna única, tarjetas por jugadora. */
+:root{--bg:#0c1514;--card:#15221f;--line:#2f4741;--ink:#eef2ea;--mute:#a7bab0;--star:#f3d68c;--moss:#86b07c;--ember:#ec8c64;
+  --display:"Grenze",Georgia,serif;--body:"Atkinson Hyperlegible",system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;text-wrap:balance}h1{font-size:2rem;color:var(--star)}h2{font-size:1.4rem;color:var(--star)}
+p{margin:0}.mute{color:var(--mute);font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.92rem;color:var(--mute)}
+input{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+input:focus-visible,button:focus-visible{outline:3px solid var(--moss);outline-offset:2px}
+.check{flex-direction:row;align-items:flex-start;gap:10px;color:var(--ink)}.check input{margin-top:4px}
+button{font:700 1rem var(--body);border:0;border-radius:10px;padding:12px 16px;background:var(--star);color:#1b1608;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.danger{background:transparent;color:var(--ember);border:1px solid var(--ember)}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 160px;min-width:0}
+.code{font:700 1.5rem ui-monospace,Menlo,monospace;letter-spacing:.08em;color:var(--star)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-variant-numeric:tabular-nums}
+.stats div{background:var(--bg);border-radius:10px;padding:8px 10px}.stats b{display:block;font-size:1.3rem;color:var(--ink)}.stats small{color:var(--mute)}
+.list{display:flex;flex-direction:column;gap:4px;font-size:.92rem;font-variant-numeric:tabular-nums;max-height:260px;overflow:auto}
+.list div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted var(--line);padding:3px 0}
+.msg{padding:10px 12px;border-radius:10px;background:#2a1d18;color:var(--ember)}.msg.ok{background:#17261a;color:var(--moss)}
+</style>
+</head>
+<body>
+<main>
+  <header><h1>Panel de familias</h1><p class="mute">WarriorMaths · cuentas, progreso y compras de tus hijas e hijos.</p></header>
+  <p id="msg" class="msg" hidden></p>
+  <section id="auth" class="card">
+    <h2>Entrar</h2>
+    <label>Correo<input id="email" type="email" autocomplete="email"></label>
+    <label>Contraseña<input id="pass" type="password" autocomplete="current-password"></label>
+    <div class="row"><button id="login">Entrar</button><button id="showReg" class="ghost">Crear cuenta</button></div>
+    <div id="reg" hidden class="card" style="background:var(--bg)">
+      <h3>Crear cuenta de familia</h3>
+      <p class="mute">Guardamos solo: tu correo, el apodo y el progreso del juego. No pedimos el nombre real de tu hija o hijo, ni su edad, ni su foto. Puedes borrarlo todo cuando quieras.</p>
+      <label class="check"><input id="consent" type="checkbox"><span>Soy madre, padre o tutor legal y autorizo que se guarde el progreso del juego de mis hijas o hijos menores de 14 años.</span></label>
+      <button id="register">Crear cuenta</button>
+    </div>
+  </section>
+  <section id="panel" hidden>
+    <div class="card"><div class="row" style="align-items:center"><h2>Tus jugadoras</h2><button id="logout" class="ghost" style="flex:0 0 auto">Salir</button></div>
+      <div id="players" style="display:flex;flex-direction:column;gap:14px"></div></div>
+    <div class="card"><h3>Añadir jugadora</h3>
+      <p class="mute">Usa un apodo, no el nombre real. Con el código y el PIN podrá entrar desde su móvil.</p>
+      <div class="row"><label>Apodo<input id="nick" maxlength="24" placeholder="Pata de Luna"></label><label>PIN (4 a 6 números)<input id="pin" inputmode="numeric" maxlength="6"></label></div>
+      <button id="add">Crear código de jugadora</button></div>
+    <div class="card"><h3>Borrar la cuenta</h3><p class="mute">Borra la familia, las jugadoras, su progreso y su historial. No se puede deshacer.</p><button id="delFam" class="danger">Borrar todo</button></div>
+  </section>
+</main>
+<script>
+(()=>{
+const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let token=null; try{ token=sessionStorage.getItem("fam-token"); }catch(e){}
+const KIND={import:"Importado del móvil",gana:"Ganado jugando",pierde:"Perdido (rescates)",compra:"Compra"};
+function msg(t,ok){ const m=$("#msg"); m.textContent=t; m.className="msg"+(ok?" ok":""); m.hidden=!t; }
+async function api(path,opt={}){ const r=await fetch(path,{...opt,headers:{"content-type":"application/json",...(token?{authorization:"Bearer "+token}:{})}}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||"Error"); return d; }
+function setToken(t){ token=t; try{ t?sessionStorage.setItem("fam-token",t):sessionStorage.removeItem("fam-token"); }catch(e){} show(); }
+async function show(){ $("#auth").hidden=!!token; $("#panel").hidden=!token; if(token) await loadPlayers().catch(e=>{ msg(e.message); setToken(null); }); }
+async function loadPlayers(){ const {players}=await api("/api/family/players"); const box=$("#players");
+  box.innerHTML=players.length?"":`<p class="mute">Aún no hay jugadoras. Crea la primera abajo.</p>`;
+  for(const p of players){ const el=document.createElement("div"); el.className="card"; el.style.background="var(--bg)";
+    el.innerHTML=`<div class="row" style="align-items:baseline"><h3>${esc(p.nickname)}</h3><span class="code" style="flex:0 0 auto">${esc(p.code)}</span></div>
+      <div class="stats"><div><small>Capítulo</small><b>${p.chapter!=null?Math.min(p.chapter+1,5):"—"}</b></div><div><small>Honor</small><b>${p.honor??"—"}</b></div><div><small>Presas</small><b>${p.presas??"—"}</b></div><div><small>Objetos</small><b>${p.items}</b></div></div>
+      <p class="mute">Última vez: ${p.last_seen_at?new Date(p.last_seen_at).toLocaleString("es-ES"):"nunca"} · Guardado: ${p.updated_at?new Date(p.updated_at).toLocaleString("es-ES"):"aún no"}</p>
+      <div class="row"><button class="ghost" data-det>Ver detalle</button><button class="ghost" data-pin>Cambiar PIN</button><button class="danger" data-del>Borrar</button></div><div data-box></div>`;
+    el.querySelector("[data-det]").onclick=async()=>{ const d=await api("/api/family/players/"+p.id), b=el.querySelector("[data-box]");
+      const st=d.summary.stats||{}, L={acechar:"Entender la pregunta",olfatear:"Separar los datos",operacion:"Elegir la operación",calculo:"Hacer la cuenta",comprobar:"Comprobar"};
+      b.innerHTML=`<h3>Método</h3><div class="list">${Object.keys(L).map(k=>{ const [a,e]=st[k]||[0,0],t=a+e; return `<div><span>${L[k]}</span><b>${t?Math.round(a/t*100)+" %":"—"}</b></div>`; }).join("")}</div>
+        <h3>Objetos</h3><div class="list">${d.inventory.map(i=>`<div><span>${esc(i.item_id)}</span><b>× ${i.quantity}</b></div>`).join("")||"<div><span>Ninguno</span></div>"}</div>
+        <h3>Historial de presas</h3><div class="list">${d.ledger.map(l=>`<div><span>${new Date(l.created_at).toLocaleString("es-ES")} · ${KIND[l.kind]||l.kind}${l.item_id?" · "+esc(l.item_id):""}</span><b>${l.amount>0?"+":""}${l.amount} → ${l.balance_after}</b></div>`).join("")||"<div><span>Sin movimientos</span></div>"}</div>`; };
+    el.querySelector("[data-pin]").onclick=async()=>{ const pin=prompt("Nuevo PIN (4 a 6 números)"); if(!pin) return; try{ await api(`/api/family/players/${p.id}/pin`,{method:"POST",body:JSON.stringify({pin})}); msg("PIN cambiado.",true); }catch(e){ msg(e.message); } };
+    el.querySelector("[data-del]").onclick=async e=>{ const b=e.target; if(!b.dataset.c){ b.dataset.c=1; b.textContent="Pulsa otra vez para borrar"; return; } await api("/api/family/players/"+p.id,{method:"DELETE"}); msg("Jugadora borrada.",true); loadPlayers(); };
+    box.appendChild(el); } }
+$("#showReg").onclick=()=>{ $("#reg").hidden=false; };
+$("#login").onclick=async()=>{ try{ const d=await api("/api/family/login",{method:"POST",body:JSON.stringify({email:$("#email").value,password:$("#pass").value})}); msg(""); setToken(d.token); }catch(e){ msg(e.message); } };
+$("#register").onclick=async()=>{ try{ const d=await api("/api/family/register",{method:"POST",body:JSON.stringify({email:$("#email").value,password:$("#pass").value,consent:$("#consent").checked})}); msg("Cuenta creada.",true); setToken(d.token); }catch(e){ msg(e.message); } };
+$("#add").onclick=async()=>{ try{ const d=await api("/api/family/players",{method:"POST",body:JSON.stringify({nickname:$("#nick").value,pin:$("#pin").value})}); msg(`Código creado: ${d.code}. Apúntalo con el PIN.`,true); $("#nick").value=$("#pin").value=""; loadPlayers(); }catch(e){ msg(e.message); } };
+$("#logout").onclick=()=>setToken(null);
+$("#delFam").onclick=async e=>{ const b=e.target; if(!b.dataset.c){ b.dataset.c=1; b.textContent="Pulsa otra vez: se borrará TODO"; return; } await api("/api/family",{method:"DELETE"}); setToken(null); msg("Cuenta borrada.",true); };
+show();
+})();
+</script>
+</body>
+</html>
