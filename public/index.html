@@ -1607,19 +1607,19 @@ function onData(id,name,m){
       r={cat,tag,ring,nick:m.n||name||tr("Amiga","Friend"),lk:"",w:"",x:m.x,z:m.z,ry:m.r,sp:0,si:0,te:m.te,shadow:blob(1.6)}; NET.remotes.set(id,r); cat.root.position.set(m.x,H(m.x,m.z),m.z);
       if(!NET.known.has(id)){ NET.known.add(id); } }
     if(r.te!==m.te||r.teWarn===undefined){ r.teWarn=true; if(m.te!==S.terr&&CH[m.te]) toast(tr(`${esc(r.nick)} está en ${CH[m.te].short}. Para veros, id al mismo territorio (Menú → Mi sala → Ir con ella).`,`${esc(r.nick)} is in ${CH[m.te].short}. To see each other, go to the same territory (Menu → My room → Go to her).`),"",6000,tr("Sala","Room")); }
-    r.tx=m.x; r.tz=m.z; r.ry=m.r; r.sp=m.s; r.si=m.si; r.te=m.te; r.seen=performance.now();
+    r.tx=m.x; r.tz=m.z; r.ry=m.r; r.sp=m.s; r.si=m.si; r.jt=m.j||0; r.te=m.te; r.seen=performance.now();
     const lk=JSON.stringify(m.lk||{}), w=JSON.stringify(m.w||{}); if(lk!==r.lk){ r.lk=lk; r.cat.setLook(m.lk||DEF.look); } if(w!==r.w){ r.w=w; dress(r.cat,m.w||{}); } }
   else if(m.t==="say"){ const txt=PHRASES[m.i]; if(txt){ toast(`<b>${esc(name||tr("Amiga","Friend"))}:</b> ${txt}`,"good",3500,tr("Sala","Room")); play("blip"); } } }
 function dropRemote(id){ const r=NET.remotes.get(id); if(!r) return; disposeCat(r.cat); if(r.shadow) scene.remove(r.shadow); NET.remotes.delete(id); }
 function netFrame(dt,t){
   if(NET.lk&&(NET.sendT+=dt)>.1){ NET.sendT=0; const P=player.root.position;
-    send({t:"p",x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+player.root.rotation.y.toFixed(2),te:S.terr,s:+playerSpeed.toFixed(1),si:player.sit>.5?1:0,n:apprentice(),lk:S.look,w:S.wear}); }
+    send({t:"p",x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+player.root.rotation.y.toFixed(2),te:S.terr,s:+playerSpeed.toFixed(1),si:player.sit>.5?1:0,j:+jumpY.toFixed(2),n:apprentice(),lk:S.look,w:S.wear}); }
   if(NET.room?.host&&(NET.pollT+=dt)>2.5){ NET.pollT=0; api(`/api/rooms/${NET.room.code}`).then(d=>{ const before=NET.room?.pending.length||0; if(!NET.room) return; NET.room.pending=d.pending;
       if(d.pending.length>before) toast(tr(`${esc(d.pending[d.pending.length-1].nick)} quiere entrar en tu sala. Ábrela en Menú → Mi sala.`,`${esc(d.pending[d.pending.length-1].nick)} wants to join your room. Open it in Menu → My room.`),"",6000,tr("Sala","Room")); }).catch(()=>{}); }
   for(const [id,r] of NET.remotes){ const vis=r.te===S.terr&&performance.now()-r.seen<5000; r.cat.root.visible=vis; r.shadow.visible=vis; if(!vis) continue;
-    const p=r.cat.root.position, k=Math.min(1,dt*10); p.x+=(r.tx-p.x)*k; p.z+=(r.tz-p.z)*k; p.y=H(p.x,p.z);
+    const p=r.cat.root.position, k=Math.min(1,dt*10); p.x+=(r.tx-p.x)*k; p.z+=(r.tz-p.z)*k; r.jy=(r.jy||0)+((r.jt||0)-(r.jy||0))*Math.min(1,dt*20); p.y=H(p.x,p.z)+r.jy;
     let d=r.ry-r.cat.root.rotation.y; d=Math.atan2(Math.sin(d),Math.cos(d)); r.cat.root.rotation.y+=d*k;
-    r.shadow.position.set(p.x,p.y+.03,p.z); r.ring.visible=NET.speaking.has(id); if(r.ring.visible) r.ring.material.opacity=.6+Math.sin(t*10)*.3;
+    r.shadow.position.set(p.x,p.y-r.jy+.03,p.z); r.ring.visible=NET.speaking.has(id); if(r.ring.visible) r.ring.material.opacity=.6+Math.sin(t*10)*.3;
     animateCat(r.cat,dt,r.sp,t,{sit:r.si}); } }
 $("#mic").onclick=toggleMic;
 $("#say").onclick=()=>{ paused=true; showControls(false);
