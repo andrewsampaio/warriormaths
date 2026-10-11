@@ -1467,6 +1467,10 @@ document.addEventListener("click",e=>{ const b=e.target.closest&&e.target.closes
 /* ================= online: cuenta, guardado en el servidor y salas con voz ================= */
 const NET={api:null,voice:false,token:null,nick:null,code:null,syncT:0,syncing:false,dirty:false,lastSync:0,room:null,lk:null,remotes:new Map(),sendT:0,pollT:0,speaking:new Set(),micOn:false,known:new Set()};
 const PHRASES=tr(["¡Hola!","¡Bien hecho!","¡Ayuda!","¡Sígueme!","¡Vamos a cazar!","¡Lo conseguimos!","¡Espera!","¡Gracias!"],["Hi!","Well done!","Help!","Follow me!","Let's hunt!","We did it!","Wait!","Thanks!"]);
+const normRoom=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^(.{3})(.{3})$/,"$1-$2");
+NET.joinCode=(()=>{ try{ const c=normRoom(new URLSearchParams(location.search).get("sala")); return /^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(c)?c:null; }catch(e){ return null; } })();
+const roomLink=code=>location.origin+location.pathname+"?sala="+code;
+function clearJoinParam(){ NET.joinCode=null; try{ history.replaceState(null,"",location.pathname); }catch(e){} }
 try{ NET.token=localStorage.getItem("gatos-token"); NET.nick=localStorage.getItem("gatos-nick"); NET.code=localStorage.getItem("gatos-code"); }catch(e){}
 async function api(path,opt={}){ const r=await fetch(NET.api+path,{...opt,keepalive:!!opt.keepalive,headers:{"content-type":"application/json","x-lang":LANG,...(NET.token?{authorization:"Bearer "+NET.token}:{})}});
   const d=await r.json().catch(()=>({})); if(!r.ok){ const e=new Error(d.error||tr("Sin conexión con el servidor.","No connection to the server.")); e.status=r.status; e.data=d; throw e; } return d; }
@@ -1516,7 +1520,7 @@ function loginSheet(after){ paused=true; showControls(false);
       const r=await api("/api/me/save");
       if(r.state&&S.started&&S.__v===undefined){ chooseSave(r); return; }
       if(r.state){ adoptServer(r.state,r.version); location.reload(); return; }
-      if(S.started){ await syncNow(); toast(tr(`¡Hola, ${d.nickname}! Tu partida ya se guarda en tu cuenta.`,`Hi, ${d.nickname}! Your game is now saved to your account.`),"good",5000); resume(); }
+      if(S.started){ await syncNow(); toast(tr(`¡Hola, ${d.nickname}! Tu partida ya se guarda en tu cuenta.`,`Hi, ${d.nickname}! Your game is now saved to your account.`),"good",5000); resume(); if(NET.joinCode) setTimeout(tryJoinLink,400); }
       else { closeSheet(); toast(tr(`¡Hola, ${d.nickname}! Vamos a crear tu gata.`,`Hi, ${d.nickname}! Let's create your cat.`),"good",4000); after?after():resume(); } }
     catch(e){ $("#le").innerHTML=mentorHTML(e.message,"warn"); } }; }
 function accountHTML(){ if(NET.api===null) return "";
@@ -1535,6 +1539,16 @@ async function buyItem(id,price,apply){ if(!online()){ if(S.presas<price) return
   catch(e){ toast(e.status===undefined?tr("Sin conexión: no se puede comprar ahora.","No connection: you can't buy right now."):e.message,"warn",4000,tr("Urraca","Magpie")); return false; } }
 
 /* ---------- salas con voz ---------- */
+/* entrar con el enlace ?sala=ABC-123 */
+async function tryJoinLink(){ const code=NET.joinCode; if(!code||NET.room) return;
+  if(NET.api===null&&!(await netDetect())){ clearJoinParam(); return; }
+  if(NET.room||!NET.joinCode) return;
+  paused=true; showControls(false);
+  if(!NET.token){ openSheet(`<span class="eyebrow">${tr("Invitación","Invitation")}</span><h2>${tr("Te han invitado a una sala","You've been invited to a room")}</h2>
+      <p>${tr(`Para entrar en la sala <b class="num">${code}</b> necesitas tu código de jugadora. Te lo dan en casa, desde el panel de familias.`,`To join room <b class="num">${code}</b> you need your player code. Your family gets it from the family panel.`)}</p>
+      <button class="btn" id="li">${tr("Entrar con mi código","Sign in with my code")}</button><button class="btn ghost" id="x">${tr("Ahora no","Not now")}</button>`,true);
+    $("#x").onclick=()=>{ clearJoinParam(); resume(); }; $("#li").onclick=()=>loginSheet(()=>tryJoinLink()); return; }
+  roomSheet(); const rc=$("#rc"), jn=$("#jn"); if(!rc||!jn) return; rc.value=code; clearJoinParam(); jn.click(); }
 function roomSheet(){ paused=true; showControls(false);
   if(!NET.voice){ openSheet(`<h2>${tr("Jugar con amigas","Play with friends")}</h2>${mentorHTML(tr("El servidor de voz aún no está configurado.","The voice server isn't set up yet."),"warn")}<button class="btn" id="x">${tr("Volver","Back")}</button>`,true); $("#x").onclick=resume; return; }
   if(!NET.room){ openSheet(`<div class="top"><h2>${tr("Jugar con amigas","Play with friends")}</h2><button class="link" id="x">${tr("Cerrar","Close")}</button></div>
@@ -1560,10 +1574,14 @@ function roomSheet(){ paused=true; showControls(false);
   openSheet(`<div class="top"><h2>${tr("Sala","Room")} ${esc(R.code)}</h2><button class="link" id="x">${tr("Cerrar","Close")}</button></div>
     <p style="font-size:.9rem">${NET.lk&&NET.lk.state==="connected"?`🟢 ${tr("Conectada","Connected")} · ${NET.lk.remoteParticipants?.size||0} ${tr("amiga(s) en la sala","friend(s) in the room")}`:`🔴 ${tr("Sin conexión de voz","No voice connection")}`}</p>
     <p>${R.host?tr("Comparte este código con tus amigas: ","Share this code with your friends: ")+"<b class=\"num\">"+esc(R.code)+"</b>":tr("Estás en la sala de una amiga.","You are in a friend's room.")}</p>
+    ${R.host?`<div class="row"><a class="btn" id="wa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;background:#25d366;color:#05210f" href="https://wa.me/?text=${encodeURIComponent(tr("¡Ven a jugar conmigo a WarriorMaths! Entra en mi sala: ","Come and play WarriorMaths with me! Join my room: ")+roomLink(R.code))}">WhatsApp</a><button class="btn ghost" id="shr">${navigator.share?tr("Compartir…","Share…"):tr("Copiar enlace","Copy link")}</button></div>
+    <p style="color:var(--mute);font-size:.85rem;word-break:break-all">${esc(roomLink(R.code))}</p>`:""}
     <div class="notes">${people.map(p=>`<div><span>${NET.speaking.has(p.id)?"🔊 ":""}${esc(p.nick)}${p.te&&CH[p.te]?` · <small>${esc(CH[p.te].short)}</small>`:""}</span>${p.id!==me&&p.te&&p.te!==S.terr&&CH[p.te]?`<button class="link" data-go="${esc(p.te)}">${tr("Ir con ella","Go to her")}</button>`:""}${R.host&&p.id!==me?`<button class="link" data-kick="${esc(p.id)}">${tr("Expulsar","Remove")}</button>`:""}</div>`).join("")}</div>
     ${R.host&&R.pending.length?`<h3>${tr("Quieren entrar","Want to join")}</h3>${R.pending.map(p=>`<div class="row"><span style="flex:2">${esc(p.nick)}</span><button class="btn" data-ok="${p.id}">${tr("Aceptar","Accept")}</button><button class="btn ghost" data-no="${p.id}">No</button></div>`).join("")}`:""}
     <div class="row"><button class="btn" id="mic2">${NET.micOn?tr("Silenciar mi micrófono","Mute my microphone"):tr("Activar mi micrófono","Turn on my microphone")}</button><button class="btn ghost" id="lv">${R.host?tr("Cerrar la sala","Close the room"):tr("Salir de la sala","Leave the room")}</button></div>
     <p style="color:var(--mute);font-size:.88rem">${tr("Si alguien dice algo feo, la anfitriona puede expulsarla. Nadie graba la voz.","If someone says something mean, the host can remove them. Nobody records the voices.")}</p>`,true);
+  const shr=$("#shr"); if(shr) shr.onclick=async()=>{ const url=roomLink(R.code), text=tr("¡Ven a jugar conmigo a WarriorMaths! Entra en mi sala:","Come and play WarriorMaths with me! Join my room:");
+    try{ if(navigator.share){ await navigator.share({title:APP,text,url}); return; } await navigator.clipboard.writeText(text+" "+url); toast(tr("Enlace copiado.","Link copied."),"good",2500); }catch(e){} };
   $("#x").onclick=resume; $("#mic2").onclick=async()=>{ await toggleMic(); roomSheet(); }; $("#lv").onclick=async()=>{ await leaveRoom(); resume(); };
   sheet.querySelectorAll("[data-ok],[data-no]").forEach(b=>b.onclick=async()=>{ await api(`/api/rooms/${R.code}/answer`,{method:"POST",body:JSON.stringify({id:b.dataset.ok||b.dataset.no,accept:!!b.dataset.ok})}).catch(()=>{}); R.pending=R.pending.filter(p=>p.id!==(b.dataset.ok||b.dataset.no)); roomSheet(); });
   sheet.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ const t=b.dataset.go; if(!unlocked(t)){ toast(tr("Todavía no has llegado a ese territorio. Pídele que venga al tuyo.","You haven't reached that territory yet. Ask her to come to yours."),"warn",5000); return; } closeSheet(); resume(); travel(t); });
@@ -1708,7 +1726,7 @@ function intro(page=0){
       <button class="btn" id="go">${tr("Empezar","Start")}</button></div>`;
     $("#go").onclick=()=>{ el.hidden=true; showcaseOff(); startPlay(); }; };
 }
-function startPlay(){ introCam=false; showcaseOff(); paused=false; showControls(true); hud();
+function startPlay(){ introCam=false; showcaseOff(); paused=false; showControls(true); hud(); if(NET.joinCode) setTimeout(tryJoinLink,600);
   tipOnce("move",tr("Usa el círculo para moverte y arrastra la pantalla para mirar. La flecha dorada te lleva a tu próximo objetivo.","Use the circle to move and drag the screen to look around. The golden arrow leads you to your next goal."),7000); }
 
 /* ================= el problema (caza, batalla o desafío) ================= */
