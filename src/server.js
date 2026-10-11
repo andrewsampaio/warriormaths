@@ -269,21 +269,25 @@ const roomOf = (req, reply) => { const r = rooms.get(String(req.params.code || '
 app.post('/api/rooms', { preHandler: auth('player') }, async (req, reply) => {
   if (!voiceReady()) return err(reply, 503, 'El servidor de voz no está configurado.');
   for (const [k, r] of rooms) if (r.host === req.user.pid) rooms.delete(k);
-  let code; do code = randCode(3) + '-' + randCode(3); while (rooms.has(code));
+  let code; do code = String(crypto.randomInt(1000, 10000)); while (rooms.has(code));
   rooms.set(code, { code, host: req.user.pid, hostNick: req.user.nick, created: Date.now(), members: new Map([[req.user.pid, req.user.nick]]) });
   return { code, host: true, livekitUrl: cfg.lkUrl, token: await lkToken(code, req.user.pid, req.user.nick) };
 });
 app.post('/api/rooms/:code/knock', { preHandler: auth('player'), config: { rateLimit: { max: 20, timeWindow: '5 minutes' } } }, async (req, reply) => {
   const r = roomOf(req, reply); if (!r) return;
   if (r.members.size >= 8) return err(reply, 409, 'La sala está llena (máximo 8).');
-  if (r.members.has(req.user.pid)) return { id: null, status: 'ok', livekitUrl: cfg.lkUrl, token: await lkToken(r.code, req.user.pid, req.user.nick) };
+  if (r.members.has(req.user.pid)) return { id: null, status: 'ok', host: r.host === req.user.pid, hostNick: r.hostNick, livekitUrl: cfg.lkUrl, token: await lkToken(r.code, req.user.pid, req.user.nick) };
+  for (const k of knocks.values()) if (k.code === r.code && k.pid === req.user.pid && k.status === 'esperando') k.status = 'cancelada';
   const id = crypto.randomUUID(); knocks.set(id, { id, code: r.code, pid: req.user.pid, nick: req.user.nick, status: 'esperando', at: Date.now() });
-  return { id, status: 'esperando' };
+  return { id, status: 'esperando', hostNick: r.hostNick };
 });
 app.get('/api/rooms/knock/:id', { preHandler: auth('player') }, async (req, reply) => {
   const k = knocks.get(req.params.id); if (!k || k.pid !== req.user.pid) return err(reply, 404, 'Petición no encontrada.');
-  if (k.status === 'ok') return { status: 'ok', code: k.code, livekitUrl: cfg.lkUrl, token: await lkToken(k.code, k.pid, k.nick) };
+  if (k.status === 'ok') return { status: 'ok', code: k.code, host: false, hostNick: rooms.get(k.code)?.hostNick || '', livekitUrl: cfg.lkUrl, token: await lkToken(k.code, k.pid, k.nick) };
   return { status: k.status };
+});
+app.delete('/api/rooms/knock/:id', { preHandler: auth('player') }, async (req, reply) => {
+  const k = knocks.get(req.params.id); if (k && k.pid === req.user.pid && k.status === 'esperando') k.status = 'cancelada'; return { ok: true };
 });
 app.get('/api/rooms/:code', { preHandler: auth('player') }, async (req, reply) => {
   const r = roomOf(req, reply); if (!r) return;

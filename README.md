@@ -23,7 +23,13 @@ Servidor do jogo: guarda o progresso, o saldo de presas, as compras e o inventá
 
 ## Jogar com amigas
 
-**Menú → Cuenta → Jugar con amigas → Crear sala** gera um código (ex.: `K7M-2QX`). As amigas entram em **Entrar en la sala** e a anfitriã aceita cada uma. Todas se veem no mesmo território, falam por voz (botão 🎙) e podem mandar frases prontas (💬). A anfitriã pode expulsar alguém. Máximo de 8 por sala; a voz não é gravada.
+Com a jogadora logada, aparece o botão **👫 Amigas** na tela do jogo.
+
+1. **👫 → Crear mi sala**: aparece o número da sala (4 algarismos, ex.: `4821`) e o botão verde **Invitar por WhatsApp**, que manda um link do tipo `https://seu-dominio/?sala=4821`.
+2. A amiga toca no link (ou digita o número em **👫**). Se ainda não estiver logada, o jogo pede o código de jogadora primeiro.
+3. Na tela da dona da sala aparece o aviso **"Ana quiere jugar contigo ✓ Sí / ✗"**, sem precisar abrir menus.
+
+Todas se veem no mesmo território, falam por voz (🎙) e mandam frases prontas (💬). A dona da sala pode expulsar alguém; máximo de 8 por sala; a voz não é gravada. Se a página recarregar, o jogo volta sozinho para a sala. Se o jogo for aberto em duas abas do mesmo navegador, só a mais nova fica ativa (a outra mostra "Jugar aquí"), para não misturar a partida.
 
 ## Idioma
 

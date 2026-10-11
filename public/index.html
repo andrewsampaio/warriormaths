@@ -154,6 +154,22 @@ input.name{font:700 1.2rem var(--body);background:var(--night);color:var(--ink);
 #mic{bottom:calc(env(safe-area-inset-bottom,0px) + 226px)}#say{bottom:calc(env(safe-area-inset-bottom,0px) + 294px)}
 #mic.off{opacity:.6}#mic.talk{box-shadow:0 0 0 4px var(--moss),0 0 18px var(--moss)}
 #err{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
+
+#fr{position:fixed;right:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 226px);min-height:48px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:rgba(12,21,20,.78);color:var(--ink);font:700 1rem var(--body);cursor:pointer;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px)}
+body.inroom #fr{bottom:calc(env(safe-area-inset-bottom,0px) + 362px)}
+#fr.on{border-color:var(--star);color:var(--star)}
+#knock{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 60px);width:min(460px,calc(100% - 24px));display:grid;gap:8px;z-index:40}
+.kcard{display:flex;align-items:center;gap:8px;padding:12px 12px 12px 16px;border-radius:18px;background:rgba(12,21,20,.94);border:2px solid var(--star);box-shadow:0 8px 30px rgba(0,0,0,.45);font-size:1.05rem;animation:capIn .3s ease}
+.kcard .kt{flex:1;line-height:1.3}
+.kcard button{border:0;border-radius:14px;min-height:48px;padding:0 16px;font:800 1.05rem var(--body);cursor:pointer}
+.kcard .yes{background:#4cc26a;color:#05210f}.kcard .no{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.bigcode{font-size:3.4rem;font-weight:800;letter-spacing:.18em;text-align:center;color:var(--star);margin:6px 0 10px;font-variant-numeric:tabular-nums}
+.btn.big{min-height:60px;font-size:1.15rem}
+a.btn.wa{display:flex;align-items:center;justify-content:center;text-decoration:none;background:#25d366;color:#05210f;border-color:#25d366}
+input.roomcode{font-size:2rem;text-align:center;letter-spacing:.3em;flex:1;min-width:0}
+#sheet .hint{color:var(--mute);font-size:.9rem}
+#asleep{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,10,10,.86);padding:16px}
+#asleep .card{max-width:420px}
 </style>
 
 <canvas id="c"></canvas>
@@ -165,6 +181,8 @@ input.name{font:700 1.2rem var(--body);background:var(--night);color:var(--ink);
 <button id="jump" hidden>Saltar</button>
 <button id="mic" hidden aria-label="Micrófono">🎙</button><button id="say" hidden aria-label="Decir a la sala">💬</button>
 <button id="act" hidden></button>
+<button id="fr" hidden></button>
+<div id="knock" hidden></div>
 <div id="sheet" hidden></div>
 <input type="file" id="file" accept=".json,application/json" hidden>
 <div id="intro" hidden></div>
@@ -1467,9 +1485,15 @@ document.addEventListener("click",e=>{ const b=e.target.closest&&e.target.closes
 /* ================= online: cuenta, guardado en el servidor y salas con voz ================= */
 const NET={api:null,voice:false,token:null,nick:null,code:null,syncT:0,syncing:false,dirty:false,lastSync:0,room:null,lk:null,remotes:new Map(),sendT:0,pollT:0,speaking:new Set(),micOn:false,known:new Set()};
 const PHRASES=tr(["¡Hola!","¡Bien hecho!","¡Ayuda!","¡Sígueme!","¡Vamos a cazar!","¡Lo conseguimos!","¡Espera!","¡Gracias!"],["Hi!","Well done!","Help!","Follow me!","Let's hunt!","We did it!","Wait!","Thanks!"]);
-const normRoom=c=>String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^(.{3})(.{3})$/,"$1-$2");
-NET.joinCode=(()=>{ try{ const c=normRoom(new URLSearchParams(location.search).get("sala")); return /^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(c)?c:null; }catch(e){ return null; } })();
+const normRoom=c=>String(c||"").replace(/\D/g,"").slice(0,4);
+NET.joinCode=(()=>{ try{ const c=normRoom(new URLSearchParams(location.search).get("sala")); return /^\d{4}$/.test(c)?c:null; }catch(e){ return null; } })();
 const roomLink=code=>location.origin+location.pathname+"?sala="+code;
+const TAB=Math.random().toString(36).slice(2);
+try{ NET.bc=new BroadcastChannel("warriormaths"); NET.bc.onmessage=e=>{ if(e.data&&e.data.t==="hi"&&e.data.tab!==TAB) sleepTab(); }; NET.bc.postMessage({t:"hi",tab:TAB}); }catch(e){}
+function sleepTab(){ if(NET.asleep) return; NET.asleep=true; clearTimeout(NET.syncT); if(NET.knock) cancelKnock();
+  try{ NET.lk&&NET.lk.disconnect(); }catch(e){} cleanupRoom(); paused=true; try{ showControls(false); }catch(e){}
+  const d=document.createElement("div"); d.id="asleep"; d.innerHTML=`<div class="card"><h2>${tr("WarriorMaths está abierto en otra pestaña","WarriorMaths is open in another tab")}</h2><p>${tr("Para no mezclar tu partida, solo se puede jugar en una a la vez.","To keep your game safe, you can only play in one tab at a time.")}</p><button class="btn" id="wake">${tr("Jugar aquí","Play here")}</button></div>`;
+  document.body.appendChild(d); d.querySelector("#wake").onclick=()=>location.reload(); }
 function clearJoinParam(){ NET.joinCode=null; try{ history.replaceState(null,"",location.pathname); }catch(e){} }
 try{ NET.token=localStorage.getItem("gatos-token"); NET.nick=localStorage.getItem("gatos-nick"); NET.code=localStorage.getItem("gatos-code"); }catch(e){}
 async function api(path,opt={}){ const r=await fetch(NET.api+path,{...opt,keepalive:!!opt.keepalive,headers:{"content-type":"application/json","x-lang":LANG,...(NET.token?{authorization:"Bearer "+NET.token}:{})}});
@@ -1483,20 +1507,25 @@ function localWrite(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(
 function adoptServer(st,v){ S=Object.assign(structuredClone(DEF),st); S.__v=v; if(!S.lang) S.lang=LANG; localWrite(); }
 
 /* ---------- sincronización ---------- */
-onSaved=()=>{ if(!online()) return; NET.dirty=true; clearTimeout(NET.syncT); NET.syncT=setTimeout(syncNow,5000); };
-async function syncNow(keepalive){ if(!online()||NET.syncing||!S.started) return; NET.syncing=true; NET.dirty=false;
+NET.sids=[];
+onSaved=()=>{ if(!online()||NET.asleep) return; NET.dirty=true; clearTimeout(NET.syncT); NET.syncT=setTimeout(syncNow,5000); };
+async function syncNow(keepalive){ if(!online()||NET.syncing||!S.started||NET.asleep) return; NET.syncing=true; NET.dirty=false;
+  S.__sid=Math.random().toString(36).slice(2,10); NET.sids.push(S.__sid); if(NET.sids.length>30) NET.sids.shift();
   try{ const r=await api("/api/me/save",{method:"PUT",body:JSON.stringify({state:S,version:S.__v||0}),keepalive});
     S.__v=r.version; S.presas=r.state.presas; S.acc=r.state.acc; S.owned=r.state.owned; S.items=r.state.items; localWrite(); NET.lastSync=Date.now(); }
-  catch(e){ if(e.status===409&&e.data?.state){ adoptServer(e.data.state,e.data.version); toast(tr("Tu partida se actualizó desde otro dispositivo.","Your game was updated from another device."),"",4000); setTimeout(()=>location.reload(),1500); }
+  catch(e){ if(e.status===409&&e.data?.state&&NET.sids.includes(e.data.state.__sid)){ S.__v=e.data.version; NET.dirty=true; NET.syncing=false; return syncNow(keepalive); }
+    if(e.status===409&&e.data?.state){ adoptServer(e.data.state,e.data.version); toast(tr("Tu partida se actualizó desde otro dispositivo.","Your game was updated from another device."),"",4000); setTimeout(()=>location.reload(),1500); }
     else if(e.status===401){ setSession(null); toast(tr("Tu sesión ha caducado. Vuelve a entrar con tu código.","Your session has expired. Sign in again with your code."),"warn",6000); }
     else NET.dirty=true; }
   finally{ NET.syncing=false; } }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden"&&NET.dirty) syncNow(true); });
 setInterval(()=>{ if(NET.dirty&&!NET.syncing) syncNow(); },30000);
-async function netStart(){ if(!(await netDetect())||!NET.token) return;
+async function netStart(){ if(!(await netDetect())){ return; } friendsBtn(); if(!NET.token) return;
+  setTimeout(()=>{ let c=null; try{ c=sessionStorage.getItem("wm-room"); }catch(e){} if(c&&!NET.room&&!NET.joinCode&&!NET.asleep) joinRoom(c,{quiet:true}); },1500);
   try{ const r=await api("/api/me/save");
     if(!r.state){ if(S.started) syncNow(); return; }
     if(S.__v===r.version) return;
+    if(r.state.__sid&&r.state.__sid===S.__sid){ S.__v=r.version; localWrite(); return; }
     if(S.__v===undefined&&S.started){ chooseSave(r); return; }
     if(!S.started||(S.__v||0)<r.version){ adoptServer(r.state,r.version); location.reload(); } }
   catch(e){ if(e.status===401) setSession(null); } }
@@ -1538,52 +1567,94 @@ async function buyItem(id,price,apply){ if(!online()){ if(S.presas<price) return
     S.presas=r.presas; apply(); S.__v=r.version; localWrite(); hud(); return true; }
   catch(e){ toast(e.status===undefined?tr("Sin conexión: no se puede comprar ahora.","No connection: you can't buy right now."):e.message,"warn",4000,tr("Urraca","Magpie")); return false; } }
 
-/* ---------- salas con voz ---------- */
-/* entrar con el enlace ?sala=ABC-123 */
-async function tryJoinLink(){ const code=NET.joinCode; if(!code||NET.room) return;
+/* ---------- salas con voz: experiencia simple para niñas ---------- */
+/* el botón 👫 Amigas siempre a mano; las peticiones para entrar salen en la pantalla del juego */
+function friendsBtn(){ const b=$("#fr"); if(!b) return; const show=NET.api!==null&&!!S.started&&!NET.asleep&&!CINE;
+  b.hidden=!show; b.classList.toggle("on",!!NET.room); document.body.classList.toggle("inroom",!!NET.room);
+  b.innerHTML=NET.room?`👫 <span>${tr("Sala","Room")} ${esc(NET.room.code)}</span>`:`👫 <span>${tr("Amigas","Friends")}</span>`; }
+$("#fr").onclick=()=>roomSheet();
+const shareText=()=>tr("¡Ven a jugar conmigo a WarriorMaths! Toca aquí para entrar en mi sala: ","Come and play WarriorMaths with me! Tap here to join my room: ");
+async function shareRoom(){ const url=roomLink(NET.room.code);
+  try{ if(navigator.share){ await navigator.share({title:APP,text:shareText(),url}); return; } await navigator.clipboard.writeText(shareText()+url); toast(tr("Enlace copiado. Pégalo donde quieras.","Link copied. Paste it wherever you like."),"good",3000); }catch(e){} }
+
+/* tarjetas encima del juego: quién quiere entrar (anfitriona) o "esperando" (invitada) */
+function knockUI(){ const el=$("#knock"); if(!el) return; let h="";
+  if(NET.room?.host) h=NET.room.pending.map(p=>`<div class="kcard"><span class="kt">🐱 <b>${esc(p.nick)}</b> ${tr("quiere jugar contigo","wants to play with you")}</span><button class="yes" data-ok="${esc(p.id)}">✓ ${tr("Sí","Yes")}</button><button class="no" data-no="${esc(p.id)}">✗</button></div>`).join("");
+  if(NET.knock) h+=`<div class="kcard"><span class="kt">⏳ ${tr(`Esperando a que <b>${esc(NET.knock.host||"tu amiga")}</b> te deje entrar…`,`Waiting for <b>${esc(NET.knock.host||"your friend")}</b> to let you in…`)}</span><button class="no" id="kcancel">${tr("Cancelar","Cancel")}</button></div>`;
+  el.innerHTML=h; el.hidden=!h;
+  el.querySelectorAll("[data-ok],[data-no]").forEach(b=>b.onclick=async()=>{ const id=b.dataset.ok||b.dataset.no, ok=!!b.dataset.ok, R=NET.room; if(!R) return;
+    const p=R.pending.find(x=>x.id===id); R.pending=R.pending.filter(x=>x.id!==id); R.answered.add(id); knockUI();
+    await api(`/api/rooms/${R.code}/answer`,{method:"POST",body:JSON.stringify({id,accept:ok})}).catch(()=>{});
+    if(ok&&p) toast(tr(`${esc(p.nick)} está entrando…`,`${esc(p.nick)} is coming in…`),"good",3000); });
+  const c=$("#kcancel"); if(c) c.onclick=cancelKnock; }
+function cancelKnock(){ const k=NET.knock; if(!k) return; clearInterval(k.iv); NET.knock=null; knockUI(); api(`/api/rooms/knock/${k.id}`,{method:"DELETE"}).catch(()=>{}); }
+
+async function createRoom(){ const b=$("#mk"); if(b){ b.disabled=true; b.textContent=tr("Creando tu sala…","Creating your room…"); }
+  try{ const r=await api("/api/rooms",{method:"POST",body:"{}"}); NET.room={code:r.code,host:true,hostNick:NET.nick,pending:[],answered:new Set()}; await lkConnect(r.livekitUrl,r.token); roomSheet(); }
+  catch(e){ NET.room=null; if(b){ b.disabled=false; b.textContent=tr("🏠 Crear mi sala","🏠 Create my room"); } const re=$("#re"); if(re) re.innerHTML=mentorHTML(e.message,"warn"); else toast(e.message,"warn",5000); friendsBtn(); } }
+async function enterRoom(code,r,quiet){ NET.room={code,host:!!r.host,hostNick:r.hostNick||"",pending:[],answered:new Set()};
+  await lkConnect(r.livekitUrl,r.token); friendsBtn();
+  if(!quiet) toast(r.host?tr(`Has vuelto a tu sala ${code}.`,`You are back in your room ${code}.`):tr(`¡Estás en la sala de ${esc(r.hostNick||"tu amiga")}! Habla con 🎙 y saluda con 💬.`,`You're in ${esc(r.hostNick||"your friend")}'s room! Talk with 🎙 and say hi with 💬.`),"good",5000); }
+async function joinRoom(code,opt={}){ code=normRoom(code);
+  if(code.length!==4){ if(!opt.quiet) toast(tr("El número de la sala tiene 4 cifras.","The room number has 4 digits."),"warn",3500); return; }
+  if(NET.room){ if(NET.room.code===code) return; await leaveRoom(); }
+  if(NET.knock) cancelKnock();
+  try{ const r=await api(`/api/rooms/${code}/knock`,{method:"POST",body:"{}"});
+    closeSheet(); if(paused&&!opt.keepPaused) resume();
+    if(r.status==="ok") return await enterRoom(code,r,opt.quiet);
+    NET.knock={id:r.id,code,host:r.hostNick}; knockUI(); play("blip");
+    NET.knock.iv=setInterval(async()=>{ const k=NET.knock; if(!k) return;
+      try{ const s=await api(`/api/rooms/knock/${k.id}`);
+        if(s.status==="ok"){ clearInterval(k.iv); NET.knock=null; knockUI(); await enterRoom(code,{...s,hostNick:k.host}); }
+        else if(s.status==="rechazada"){ clearInterval(k.iv); NET.knock=null; knockUI(); toast(tr("Esta vez no te han dejado entrar.","You weren't let in this time."),"warn",4500); } }
+      catch(e){ clearInterval(k.iv); NET.knock=null; knockUI(); if(!opt.quiet) toast(e.message,"warn",4500); } },2000); }
+  catch(e){ if(opt.quiet){ try{ sessionStorage.removeItem("wm-room"); }catch(_){} return; } const re=$("#re"); if(re&&!sheet.hidden) re.innerHTML=mentorHTML(e.message,"warn"); else toast(e.message,"warn",5000); } }
+
+/* entrar con el enlace ?sala=1234 */
+async function tryJoinLink(){ const code=NET.joinCode; if(!code) return;
   if(NET.api===null&&!(await netDetect())){ clearJoinParam(); return; }
-  if(NET.room||!NET.joinCode) return;
-  paused=true; showControls(false);
-  if(!NET.token){ openSheet(`<span class="eyebrow">${tr("Invitación","Invitation")}</span><h2>${tr("Te han invitado a una sala","You've been invited to a room")}</h2>
-      <p>${tr(`Para entrar en la sala <b class="num">${code}</b> necesitas tu código de jugadora. Te lo dan en casa, desde el panel de familias.`,`To join room <b class="num">${code}</b> you need your player code. Your family gets it from the family panel.`)}</p>
+  if(!NET.joinCode) return;
+  if(!NET.token){ paused=true; showControls(false);
+    openSheet(`<span class="eyebrow">${tr("Invitación","Invitation")}</span><h2>${tr("¡Te invitan a jugar!","You're invited to play!")}</h2>
+      <p>${tr("Para entrar en la sala de tu amiga, primero entra con tu código de jugadora (te lo dan en casa).","To join your friend's room, first sign in with your player code (your family has it).")}</p>
       <button class="btn" id="li">${tr("Entrar con mi código","Sign in with my code")}</button><button class="btn ghost" id="x">${tr("Ahora no","Not now")}</button>`,true);
     $("#x").onclick=()=>{ clearJoinParam(); resume(); }; $("#li").onclick=()=>loginSheet(()=>tryJoinLink()); return; }
-  roomSheet(); const rc=$("#rc"), jn=$("#jn"); if(!rc||!jn) return; rc.value=code; clearJoinParam(); jn.click(); }
+  clearJoinParam(); await joinRoom(code); }
+
 function roomSheet(){ paused=true; showControls(false);
-  if(!NET.voice){ openSheet(`<h2>${tr("Jugar con amigas","Play with friends")}</h2>${mentorHTML(tr("El servidor de voz aún no está configurado.","The voice server isn't set up yet."),"warn")}<button class="btn" id="x">${tr("Volver","Back")}</button>`,true); $("#x").onclick=resume; return; }
-  if(!NET.room){ openSheet(`<div class="top"><h2>${tr("Jugar con amigas","Play with friends")}</h2><button class="link" id="x">${tr("Cerrar","Close")}</button></div>
-      <p>${tr("Crea una sala y comparte el código con tus amigas, o entra en la sala de una amiga.","Create a room and share the code with your friends, or join a friend's room.")}</p>
-      <button class="btn" id="mk">${tr("Crear sala","Create room")}</button>
-      <input class="name" id="rc" autocomplete="off" autocapitalize="characters" placeholder="${tr("Código de sala (ej. ABC-123)","Room code (e.g. ABC-123)")}" maxlength="7">
-      <button class="btn ghost" id="jn">${tr("Entrar en la sala","Join room")}</button><div id="re"></div>
-      <p style="color:var(--mute);font-size:.88rem">${tr("Con voz: todas podéis hablar y escucharos. Usa auriculares para que no haya eco.","With voice: you can all talk and hear each other. Use headphones so there is no echo.")}</p>`,true);
-    $("#x").onclick=resume;
-    $("#mk").onclick=async()=>{ try{ const r=await api("/api/rooms",{method:"POST",body:"{}"}); NET.room={code:r.code,host:true,members:[],pending:[]}; await lkConnect(r.livekitUrl,r.token); roomSheet(); }catch(e){ $("#re").innerHTML=mentorHTML(e.message,"warn"); } };
-    $("#jn").onclick=async()=>{ const code=$("#rc").value.toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/^(.{3})(.{3})$/,"$1-$2");
-      try{ const r=await api(`/api/rooms/${code}/knock`,{method:"POST",body:"{}"});
-        if(r.status==="ok"){ NET.room={code,host:false,members:[],pending:[]}; await lkConnect(r.livekitUrl,r.token); return roomSheet(); }
-        $("#re").innerHTML=mentorHTML(tr("Esperando a que la anfitriona te deje entrar…","Waiting for the host to let you in…"));
-        const iv=setInterval(async()=>{ try{ const k=await api(`/api/rooms/knock/${r.id}`);
-            if(k.status==="ok"){ clearInterval(iv); NET.room={code,host:false,members:[],pending:[]}; await lkConnect(k.livekitUrl,k.token); roomSheet(); }
-            else if(k.status==="rechazada"){ clearInterval(iv); $("#re").innerHTML=mentorHTML(tr("No te han dejado entrar esta vez.","You weren't let in this time."),"warn"); } }
-          catch(e){ clearInterval(iv); $("#re").innerHTML=mentorHTML(e.message,"warn"); } },2000); }
-      catch(e){ $("#re").innerHTML=mentorHTML(e.message,"warn"); } };
+  const close=`<button class="link" id="x">${tr("Cerrar","Close")}</button>`;
+  if(!NET.token){ openSheet(`<div class="top"><h2>👫 ${tr("Jugar con amigas","Play with friends")}</h2>${close}</div>
+      <p>${tr("Para jugar con tus amigas necesitas tu código de jugadora. Te lo dan en casa, desde el panel de familias.","To play with your friends you need your player code. Your family gets it from the family panel.")}</p>
+      <button class="btn" id="li">${tr("Entrar con mi código","Sign in with my code")}</button>`,true);
+    $("#x").onclick=resume; $("#li").onclick=()=>loginSheet(); return; }
+  if(!NET.voice){ openSheet(`<div class="top"><h2>👫 ${tr("Jugar con amigas","Play with friends")}</h2>${close}</div>${mentorHTML(tr("El servidor de voz aún no está configurado.","The voice server isn't set up yet."),"warn")}`,true); $("#x").onclick=resume; return; }
+  if(!NET.room){
+    openSheet(`<div class="top"><h2>👫 ${tr("Jugar con amigas","Play with friends")}</h2>${close}</div>
+      <button class="btn big" id="mk">${tr("🏠 Crear mi sala","🏠 Create my room")}</button>
+      <p class="hint">${tr("Después mandas el enlace a tus amigas por WhatsApp.","Then you send the link to your friends on WhatsApp.")}</p>
+      <h3>${tr("¿Tu amiga ya tiene sala?","Does your friend already have a room?")}</h3>
+      <p class="hint">${tr("Toca el enlace que te ha mandado, o escribe aquí el número de su sala:","Tap the link she sent you, or type her room number here:")}</p>
+      <div class="row"><input class="name roomcode" id="rc" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" placeholder="1234"><button class="btn" id="jn" disabled>${tr("Entrar","Join")}</button></div>
+      <div id="re"></div>`,true);
+    $("#x").onclick=resume; $("#mk").onclick=createRoom;
+    const rc=$("#rc"), jn=$("#jn"); rc.oninput=()=>{ rc.value=normRoom(rc.value); jn.disabled=rc.value.length!==4; if(rc.value.length===4) jn.focus(); };
+    jn.onclick=()=>{ jn.disabled=true; joinRoom(rc.value,{keepPaused:false}); };
     return; }
-  const R=NET.room, me=lkMe();
+  const R=NET.room, me=lkMe(), conn=NET.lk&&NET.lk.state==="connected";
   const people=[{id:me,nick:NET.nick+tr(" (tú)"," (you)"),te:S.terr}].concat([...NET.remotes].map(([id,r])=>({id,nick:r.nick,te:r.te})));
-  openSheet(`<div class="top"><h2>${tr("Sala","Room")} ${esc(R.code)}</h2><button class="link" id="x">${tr("Cerrar","Close")}</button></div>
-    <p style="font-size:.9rem">${NET.lk&&NET.lk.state==="connected"?`🟢 ${tr("Conectada","Connected")} · ${NET.lk.remoteParticipants?.size||0} ${tr("amiga(s) en la sala","friend(s) in the room")}`:`🔴 ${tr("Sin conexión de voz","No voice connection")}`}</p>
-    <p>${R.host?tr("Comparte este código con tus amigas: ","Share this code with your friends: ")+"<b class=\"num\">"+esc(R.code)+"</b>":tr("Estás en la sala de una amiga.","You are in a friend's room.")}</p>
-    ${R.host?`<div class="row"><a class="btn" id="wa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;background:#25d366;color:#05210f" href="https://wa.me/?text=${encodeURIComponent(tr("¡Ven a jugar conmigo a WarriorMaths! Entra en mi sala: ","Come and play WarriorMaths with me! Join my room: ")+roomLink(R.code))}">WhatsApp</a><button class="btn ghost" id="shr">${navigator.share?tr("Compartir…","Share…"):tr("Copiar enlace","Copy link")}</button></div>
-    <p style="color:var(--mute);font-size:.85rem;word-break:break-all">${esc(roomLink(R.code))}</p>`:""}
+  const host=R.host?"":`<p>${tr(`Estás en la sala de <b>${esc(R.hostNick||"tu amiga")}</b>.`,`You are in <b>${esc(R.hostNick||"your friend")}</b>'s room.`)}</p>`;
+  openSheet(`<div class="top"><h2>👫 ${R.host?tr("Tu sala","Your room"):tr("Sala","Room")}</h2>${close}</div>
+    ${R.host?`<div class="bigcode">${esc(R.code)}</div>
+      <a class="btn big wa" id="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(shareText()+roomLink(R.code))}">${tr("Invitar por WhatsApp","Invite on WhatsApp")}</a>
+      <button class="btn ghost" id="shr">${navigator.share?tr("Invitar de otra forma…","Invite another way…"):tr("Copiar enlace","Copy link")}</button>
+      <p class="hint">${tr("Cuando una amiga quiera entrar, te saldrá un aviso en el juego: toca <b>✓ Sí</b>.","When a friend wants to join, a message will appear in the game: tap <b>✓ Yes</b>.")}</p>`:host}
+    <p class="hint">${conn?"🟢":"🔴"} ${conn?tr("Conectada","Connected"):tr("Sin conexión de voz","No voice connection")}</p>
+    <h3>${tr("En la sala","In the room")} (${people.length})</h3>
     <div class="notes">${people.map(p=>`<div><span>${NET.speaking.has(p.id)?"🔊 ":""}${esc(p.nick)}${p.te&&CH[p.te]?` · <small>${esc(CH[p.te].short)}</small>`:""}</span>${p.id!==me&&p.te&&p.te!==S.terr&&CH[p.te]?`<button class="link" data-go="${esc(p.te)}">${tr("Ir con ella","Go to her")}</button>`:""}${R.host&&p.id!==me?`<button class="link" data-kick="${esc(p.id)}">${tr("Expulsar","Remove")}</button>`:""}</div>`).join("")}</div>
-    ${R.host&&R.pending.length?`<h3>${tr("Quieren entrar","Want to join")}</h3>${R.pending.map(p=>`<div class="row"><span style="flex:2">${esc(p.nick)}</span><button class="btn" data-ok="${p.id}">${tr("Aceptar","Accept")}</button><button class="btn ghost" data-no="${p.id}">No</button></div>`).join("")}`:""}
-    <div class="row"><button class="btn" id="mic2">${NET.micOn?tr("Silenciar mi micrófono","Mute my microphone"):tr("Activar mi micrófono","Turn on my microphone")}</button><button class="btn ghost" id="lv">${R.host?tr("Cerrar la sala","Close the room"):tr("Salir de la sala","Leave the room")}</button></div>
-    <p style="color:var(--mute);font-size:.88rem">${tr("Si alguien dice algo feo, la anfitriona puede expulsarla. Nadie graba la voz.","If someone says something mean, the host can remove them. Nobody records the voices.")}</p>`,true);
-  const shr=$("#shr"); if(shr) shr.onclick=async()=>{ const url=roomLink(R.code), text=tr("¡Ven a jugar conmigo a WarriorMaths! Entra en mi sala:","Come and play WarriorMaths with me! Join my room:");
-    try{ if(navigator.share){ await navigator.share({title:APP,text,url}); return; } await navigator.clipboard.writeText(text+" "+url); toast(tr("Enlace copiado.","Link copied."),"good",2500); }catch(e){} };
+    <div class="row"><button class="btn ghost" id="mic2">${NET.micOn?tr("🔇 Silenciar","🔇 Mute"):tr("🎙 Activar micro","🎙 Turn mic on")}</button><button class="btn ghost" id="lv">${R.host?tr("Cerrar la sala","Close the room"):tr("Salir de la sala","Leave the room")}</button></div>
+    <p class="hint">${tr("Nadie graba la voz. Si alguien dice algo feo, la dueña de la sala puede expulsarla.","Nobody records the voices. If someone says something mean, the room owner can remove them.")}</p>`,true);
+  const shr=$("#shr"); if(shr) shr.onclick=shareRoom;
   $("#x").onclick=resume; $("#mic2").onclick=async()=>{ await toggleMic(); roomSheet(); }; $("#lv").onclick=async()=>{ await leaveRoom(); resume(); };
-  sheet.querySelectorAll("[data-ok],[data-no]").forEach(b=>b.onclick=async()=>{ await api(`/api/rooms/${R.code}/answer`,{method:"POST",body:JSON.stringify({id:b.dataset.ok||b.dataset.no,accept:!!b.dataset.ok})}).catch(()=>{}); R.pending=R.pending.filter(p=>p.id!==(b.dataset.ok||b.dataset.no)); roomSheet(); });
   sheet.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ const t=b.dataset.go; if(!unlocked(t)){ toast(tr("Todavía no has llegado a ese territorio. Pídele que venga al tuyo.","You haven't reached that territory yet. Ask her to come to yours."),"warn",5000); return; } closeSheet(); resume(); travel(t); });
   sheet.querySelectorAll("[data-kick]").forEach(b=>b.onclick=async()=>{ await api(`/api/rooms/${R.code}/kick`,{method:"POST",body:JSON.stringify({pid:b.dataset.kick})}).catch(()=>{}); dropRemote(b.dataset.kick); roomSheet(); }); }
 function loadLK(){ return window.LivekitClient?Promise.resolve():new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src="/vendor/livekit-client.umd.js"; s.onload=ok; s.onerror=()=>ko(new Error(tr("No se pudo cargar la voz.","Voice could not be loaded."))); document.head.appendChild(s); }); }
@@ -1600,15 +1671,15 @@ async function lkConnect(url,token){ await loadLK(); const LK=window.LivekitClie
   try{ if(!url) throw new Error(tr("Falta LIVEKIT_URL en el servidor.","LIVEKIT_URL is missing on the server."));
     await Promise.race([room.connect(url,token),new Promise((_,ko)=>setTimeout(()=>ko(new Error("timeout")),20000))]); }
   catch(e){ NET.lkErr=String(e&&e.message||e); try{ await room.disconnect(); }catch(_){}
-    const code=NET.room?.code; NET.lk=null; NET.room=null; if(code) api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}).catch(()=>{});
+    const code=NET.room?.code; NET.lk=null; NET.room=null; try{ sessionStorage.removeItem("wm-room"); }catch(_){} if(code) api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}).catch(()=>{}); friendsBtn();
     throw new Error(tr("No se pudo conectar con el servidor de voz","Could not connect to the voice server")+` (${NET.lkErr}).`); }
-  NET.lkErr=null; NET.lkReady=true;
+  NET.lkErr=null; NET.lkReady=true; try{ sessionStorage.setItem("wm-room",NET.room?NET.room.code:""); }catch(e){} friendsBtn();
   try{ await room.localParticipant.setMicrophoneEnabled(true); NET.micOn=true; }catch(e){ NET.micOn=false; toast(tr("No se pudo usar el micrófono. Revisa el permiso del navegador.","The microphone could not be used. Check the browser permission."),"warn",5000); }
   $("#mic").hidden=$("#say").hidden=false; updMic(); }
 async function toggleMic(){ if(!NET.lk) return; try{ NET.micOn=!NET.micOn; await NET.lk.localParticipant.setMicrophoneEnabled(NET.micOn); }catch(e){ NET.micOn=false; } updMic(); }
 function updMic(){ const b=$("#mic"); b.textContent=NET.micOn?"🎙":"🔇"; b.setAttribute("aria-label",NET.micOn?tr("Silenciar micrófono","Mute microphone"):tr("Activar micrófono","Turn on microphone")); b.classList.toggle("off",!NET.micOn); }
-async function leaveRoom(){ if(!NET.room) return; const code=NET.room.code; try{ await api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}); }catch(e){} try{ await NET.lk?.disconnect(); }catch(e){} cleanupRoom(); }
-function cleanupRoom(){ NET.room=null; NET.lk=null; NET.lkReady=false; NET.speaking=new Set(); [...NET.remotes.keys()].forEach(dropRemote); $("#mic").hidden=$("#say").hidden=true; document.querySelectorAll("body>audio").forEach(a=>a.remove()); }
+async function leaveRoom(){ try{ sessionStorage.removeItem("wm-room"); }catch(e){} if(!NET.room) return; const code=NET.room.code; try{ await api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}); }catch(e){} try{ await NET.lk?.disconnect(); }catch(e){} cleanupRoom(); }
+function cleanupRoom(){ NET.room=null; try{ knockUI(); friendsBtn(); }catch(e){} NET.lk=null; NET.lkReady=false; NET.speaking=new Set(); [...NET.remotes.keys()].forEach(dropRemote); $("#mic").hidden=$("#say").hidden=true; document.querySelectorAll("body>audio").forEach(a=>a.remove()); }
 /* só envia com a sala conectada: se o primeiro envio acontecer durante a conexão, o livekit-client 2.5 guarda a falha ("PC manager is closed") e todos os envios seguintes falham */
 function send(obj,reliable){ const L=NET.lk; if(!L||!NET.lkReady||L.state!=="connected") return;
   const reset=()=>{ try{ if(L.engine) L.engine.publisherConnectionPromise=undefined; }catch(_){} };
@@ -1624,7 +1695,7 @@ function onData(id,name,m){
       const ring=markerSprite(0x9fe0ff); ring.scale.set(1.2,1.2,1); ring.position.set(0,2.45,0); ring.visible=false; cat.root.add(ring);
       r={cat,tag,ring,nick:m.n||name||tr("Amiga","Friend"),lk:"",w:"",x:m.x,z:m.z,ry:m.r,sp:0,si:0,te:m.te,shadow:blob(1.6)}; NET.remotes.set(id,r); cat.root.position.set(m.x,H(m.x,m.z),m.z);
       if(!NET.known.has(id)){ NET.known.add(id); } }
-    if(r.te!==m.te||r.teWarn===undefined){ r.teWarn=true; if(m.te!==S.terr&&CH[m.te]) toast(tr(`${esc(r.nick)} está en ${CH[m.te].short}. Para veros, id al mismo territorio (Menú → Mi sala → Ir con ella).`,`${esc(r.nick)} is in ${CH[m.te].short}. To see each other, go to the same territory (Menu → My room → Go to her).`),"",6000,tr("Sala","Room")); }
+    if(r.te!==m.te||r.teWarn===undefined){ r.teWarn=true; if(m.te!==S.terr&&CH[m.te]) toast(tr(`${esc(r.nick)} está en ${CH[m.te].short}. Para veros, id al mismo territorio (👫 → Ir con ella).`,`${esc(r.nick)} is in ${CH[m.te].short}. To see each other, go to the same territory (👫 → Go to her).`),"",6000,tr("Sala","Room")); }
     r.tx=m.x; r.tz=m.z; r.ry=m.r; r.sp=m.s; r.si=m.si; r.jt=m.j||0; r.te=m.te; r.seen=performance.now();
     const lk=JSON.stringify(m.lk||{}), w=JSON.stringify(m.w||{}); if(lk!==r.lk){ r.lk=lk; r.cat.setLook(m.lk||DEF.look); } if(w!==r.w){ r.w=w; dress(r.cat,m.w||{}); } }
   else if(m.t==="say"){ const txt=PHRASES[m.i]; if(txt){ toast(`<b>${esc(name||tr("Amiga","Friend"))}:</b> ${txt}`,"good",3500,tr("Sala","Room")); play("blip"); } } }
@@ -1632,8 +1703,12 @@ function dropRemote(id){ const r=NET.remotes.get(id); if(!r) return; disposeCat(
 function netFrame(dt,t){
   if(NET.lk&&(NET.sendT+=dt)>.1){ NET.sendT=0; const P=player.root.position;
     send({t:"p",x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+player.root.rotation.y.toFixed(2),te:S.terr,s:+playerSpeed.toFixed(1),si:player.sit>.5?1:0,j:+jumpY.toFixed(2),n:apprentice(),lk:S.look,w:S.wear}); }
-  if(NET.room?.host&&(NET.pollT+=dt)>2.5){ NET.pollT=0; api(`/api/rooms/${NET.room.code}`).then(d=>{ const before=NET.room?.pending.length||0; if(!NET.room) return; NET.room.pending=d.pending;
-      if(d.pending.length>before) toast(tr(`${esc(d.pending[d.pending.length-1].nick)} quiere entrar en tu sala. Ábrela en Menú → Mi sala.`,`${esc(d.pending[d.pending.length-1].nick)} wants to join your room. Open it in Menu → My room.`),"",6000,tr("Sala","Room")); }).catch(()=>{}); }
+  if((NET.uiT=(NET.uiT||0)+dt)>.5){ NET.uiT=0; friendsBtn(); }
+  if(NET.room?.host&&!NET.polling&&(NET.pollT+=dt)>2){ NET.pollT=0; NET.polling=true; const R=NET.room;
+    api(`/api/rooms/${R.code}`).then(d=>{ if(NET.room!==R) return; const fresh=d.pending.filter(p=>!R.answered.has(p.id));
+      const isNew=fresh.some(p=>!R.pending.some(q=>q.id===p.id)); R.pending=fresh; knockUI(); if(isNew) play("blip"); })
+    .catch(e=>{ if(e.status===404&&NET.room===R){ toast(tr("Tu sala se ha cerrado.","Your room has closed."),"warn",4000); try{ NET.lk&&NET.lk.disconnect(); }catch(_){} cleanupRoom(); } })
+    .finally(()=>{ NET.polling=false; }); }
   for(const [id,r] of NET.remotes){ const vis=r.te===S.terr&&performance.now()-r.seen<5000; r.cat.root.visible=vis; r.shadow.visible=vis; if(!vis) continue;
     const p=r.cat.root.position, k=Math.min(1,dt*10); p.x+=(r.tx-p.x)*k; p.z+=(r.tz-p.z)*k; r.jy=(r.jy||0)+((r.jt||0)-(r.jy||0))*Math.min(1,dt*20); p.y=H(p.x,p.z)+r.jy;
     let d=r.ry-r.cat.root.rotation.y; d=Math.atan2(Math.sin(d),Math.cos(d)); r.cat.root.rotation.y+=d*k;
@@ -2318,7 +2393,7 @@ function cineFrame(dt){ const s=SHOTS[CINE.i]; if(!s) return; CINE.t+=dt; const 
   const last=CINE.i===SHOTS.length-1, f=$("#fade"); f.style.opacity=Math.min(1,Math.max(0,1-t/.7,last?0:(t-(s.d-.6))/.6));
   if(CINE.i===SHOTS.length-1&&t>=s.d) return; if(t>=s.d) nextShot(); }
 cineEl.addEventListener("click",e=>{ if(!CINE) return; if(e.target.id==="skip"||CINE.i===SHOTS.length-1&&CINE.t>3) endCine(true); });
-window.__dbg={playCine,cine:()=>CINE,NET,syncNow,buyItem,onData,triggerDanger,shop,crumbs,mice,player,get NPCS(){return NPCS;},hunt:()=>H_,mode:()=>MODE,S:()=>S,TPL,startBattle,travel,finale};
+window.__dbg={playCine,cine:()=>CINE,NET,syncNow,knockUI,roomSheet,buyItem,onData,triggerDanger,shop,crumbs,mice,player,get NPCS(){return NPCS;},hunt:()=>H_,mode:()=>MODE,S:()=>S,TPL,startBattle,travel,finale};
 function start(){ resize(); enterTerritory(S.terr); hud(); applyLook(); setCam(S.cam,true); requestAnimationFrame(frame);
   if(S.started){ introCam=false; startPlay(); if(!S.tips.v8) setTimeout(()=>{ S.tips.v8=1; save(); toast(tr("¡Urraca ha abierto su tienda en un roble hueco del Pinar! Sigue el camino de piedras desde la entrada del campamento.","Magpie has opened her shop in a hollow oak in the Pines! Follow the stone path from the camp entrance."),"",9000); },3000); }
   else { player.root.position.set(0,0,0); introCam=true; startCard(); }
