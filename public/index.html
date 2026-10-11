@@ -1556,20 +1556,22 @@ function roomSheet(){ paused=true; showControls(false);
       catch(e){ $("#re").innerHTML=mentorHTML(e.message,"warn"); } };
     return; }
   const R=NET.room, me=lkMe();
-  const people=[{id:me,nick:NET.nick+tr(" (tú)"," (you)")}].concat([...NET.remotes].map(([id,r])=>({id,nick:r.nick})));
+  const people=[{id:me,nick:NET.nick+tr(" (tú)"," (you)"),te:S.terr}].concat([...NET.remotes].map(([id,r])=>({id,nick:r.nick,te:r.te})));
   openSheet(`<div class="top"><h2>${tr("Sala","Room")} ${esc(R.code)}</h2><button class="link" id="x">${tr("Cerrar","Close")}</button></div>
+    <p style="font-size:.9rem">${NET.lk&&NET.lk.state==="connected"?`🟢 ${tr("Conectada","Connected")} · ${NET.lk.remoteParticipants?.size||0} ${tr("amiga(s) en la sala","friend(s) in the room")}`:`🔴 ${tr("Sin conexión de voz","No voice connection")}`}</p>
     <p>${R.host?tr("Comparte este código con tus amigas: ","Share this code with your friends: ")+"<b class=\"num\">"+esc(R.code)+"</b>":tr("Estás en la sala de una amiga.","You are in a friend's room.")}</p>
-    <div class="notes">${people.map(p=>`<div><span>${NET.speaking.has(p.id)?"🔊 ":""}${esc(p.nick)}</span>${R.host&&p.id!==me?`<button class="link" data-kick="${esc(p.id)}">${tr("Expulsar","Remove")}</button>`:""}</div>`).join("")}</div>
+    <div class="notes">${people.map(p=>`<div><span>${NET.speaking.has(p.id)?"🔊 ":""}${esc(p.nick)}${p.te&&CH[p.te]?` · <small>${esc(CH[p.te].short)}</small>`:""}</span>${p.id!==me&&p.te&&p.te!==S.terr&&CH[p.te]?`<button class="link" data-go="${esc(p.te)}">${tr("Ir con ella","Go to her")}</button>`:""}${R.host&&p.id!==me?`<button class="link" data-kick="${esc(p.id)}">${tr("Expulsar","Remove")}</button>`:""}</div>`).join("")}</div>
     ${R.host&&R.pending.length?`<h3>${tr("Quieren entrar","Want to join")}</h3>${R.pending.map(p=>`<div class="row"><span style="flex:2">${esc(p.nick)}</span><button class="btn" data-ok="${p.id}">${tr("Aceptar","Accept")}</button><button class="btn ghost" data-no="${p.id}">No</button></div>`).join("")}`:""}
     <div class="row"><button class="btn" id="mic2">${NET.micOn?tr("Silenciar mi micrófono","Mute my microphone"):tr("Activar mi micrófono","Turn on my microphone")}</button><button class="btn ghost" id="lv">${R.host?tr("Cerrar la sala","Close the room"):tr("Salir de la sala","Leave the room")}</button></div>
     <p style="color:var(--mute);font-size:.88rem">${tr("Si alguien dice algo feo, la anfitriona puede expulsarla. Nadie graba la voz.","If someone says something mean, the host can remove them. Nobody records the voices.")}</p>`,true);
   $("#x").onclick=resume; $("#mic2").onclick=async()=>{ await toggleMic(); roomSheet(); }; $("#lv").onclick=async()=>{ await leaveRoom(); resume(); };
   sheet.querySelectorAll("[data-ok],[data-no]").forEach(b=>b.onclick=async()=>{ await api(`/api/rooms/${R.code}/answer`,{method:"POST",body:JSON.stringify({id:b.dataset.ok||b.dataset.no,accept:!!b.dataset.ok})}).catch(()=>{}); R.pending=R.pending.filter(p=>p.id!==(b.dataset.ok||b.dataset.no)); roomSheet(); });
+  sheet.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ const t=b.dataset.go; if(!unlocked(t)){ toast(tr("Todavía no has llegado a ese territorio. Pídele que venga al tuyo.","You haven't reached that territory yet. Ask her to come to yours."),"warn",5000); return; } closeSheet(); resume(); travel(t); });
   sheet.querySelectorAll("[data-kick]").forEach(b=>b.onclick=async()=>{ await api(`/api/rooms/${R.code}/kick`,{method:"POST",body:JSON.stringify({pid:b.dataset.kick})}).catch(()=>{}); dropRemote(b.dataset.kick); roomSheet(); }); }
 function loadLK(){ return window.LivekitClient?Promise.resolve():new Promise((ok,ko)=>{ const s=document.createElement("script"); s.src="/vendor/livekit-client.umd.js"; s.onload=ok; s.onerror=()=>ko(new Error(tr("No se pudo cargar la voz.","Voice could not be loaded."))); document.head.appendChild(s); }); }
 const lkMe=()=>NET.lk?.localParticipant?.identity;
 async function lkConnect(url,token){ await loadLK(); const LK=window.LivekitClient;
-  const room=new LK.Room({audioCaptureDefaults:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); NET.lk=room;
+  const room=new LK.Room({audioCaptureDefaults:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); NET.lk=room; NET.lkReady=false;
   room.on(LK.RoomEvent.TrackSubscribed,(track)=>{ if(track.kind==="audio"){ const el=track.attach(); el.style.display="none"; document.body.appendChild(el); } });
   room.on(LK.RoomEvent.TrackUnsubscribed,(track)=>{ track.detach().forEach(el=>el.remove()); });
   room.on(LK.RoomEvent.ParticipantConnected,p=>{ toast(tr(`${p.name||"Una amiga"} ha entrado en la sala.`,`${p.name||"A friend"} has joined the room.`),"good",3500); });
@@ -1577,14 +1579,22 @@ async function lkConnect(url,token){ await loadLK(); const LK=window.LivekitClie
   room.on(LK.RoomEvent.ActiveSpeakersChanged,sp=>{ NET.speaking=new Set(sp.map(p=>p.identity)); $("#mic").classList.toggle("talk",NET.speaking.has(lkMe())); });
   room.on(LK.RoomEvent.DataReceived,(payload,p)=>{ if(!p) return; let m; try{ m=JSON.parse(new TextDecoder().decode(payload)); }catch(e){ return; } onData(p.identity,p.name,m); });
   room.on(LK.RoomEvent.Disconnected,()=>{ const had=!!NET.room; cleanupRoom(); if(had) toast(tr("Has salido de la sala.","You have left the room."),"",3500); });
-  await room.connect(url,token);
+  try{ if(!url) throw new Error(tr("Falta LIVEKIT_URL en el servidor.","LIVEKIT_URL is missing on the server."));
+    await Promise.race([room.connect(url,token),new Promise((_,ko)=>setTimeout(()=>ko(new Error("timeout")),20000))]); }
+  catch(e){ NET.lkErr=String(e&&e.message||e); try{ await room.disconnect(); }catch(_){}
+    const code=NET.room?.code; NET.lk=null; NET.room=null; if(code) api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}).catch(()=>{});
+    throw new Error(tr("No se pudo conectar con el servidor de voz","Could not connect to the voice server")+` (${NET.lkErr}).`); }
+  NET.lkErr=null; NET.lkReady=true;
   try{ await room.localParticipant.setMicrophoneEnabled(true); NET.micOn=true; }catch(e){ NET.micOn=false; toast(tr("No se pudo usar el micrófono. Revisa el permiso del navegador.","The microphone could not be used. Check the browser permission."),"warn",5000); }
   $("#mic").hidden=$("#say").hidden=false; updMic(); }
 async function toggleMic(){ if(!NET.lk) return; try{ NET.micOn=!NET.micOn; await NET.lk.localParticipant.setMicrophoneEnabled(NET.micOn); }catch(e){ NET.micOn=false; } updMic(); }
 function updMic(){ const b=$("#mic"); b.textContent=NET.micOn?"🎙":"🔇"; b.setAttribute("aria-label",NET.micOn?tr("Silenciar micrófono","Mute microphone"):tr("Activar micrófono","Turn on microphone")); b.classList.toggle("off",!NET.micOn); }
 async function leaveRoom(){ if(!NET.room) return; const code=NET.room.code; try{ await api(`/api/rooms/${code}/leave`,{method:"POST",body:"{}"}); }catch(e){} try{ await NET.lk?.disconnect(); }catch(e){} cleanupRoom(); }
-function cleanupRoom(){ NET.room=null; NET.lk=null; NET.speaking=new Set(); [...NET.remotes.keys()].forEach(dropRemote); $("#mic").hidden=$("#say").hidden=true; document.querySelectorAll("body>audio").forEach(a=>a.remove()); }
-function send(obj,reliable){ if(!NET.lk) return; try{ NET.lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(obj)),{reliable:!!reliable}); }catch(e){} }
+function cleanupRoom(){ NET.room=null; NET.lk=null; NET.lkReady=false; NET.speaking=new Set(); [...NET.remotes.keys()].forEach(dropRemote); $("#mic").hidden=$("#say").hidden=true; document.querySelectorAll("body>audio").forEach(a=>a.remove()); }
+/* só envia com a sala conectada: se o primeiro envio acontecer durante a conexão, o livekit-client 2.5 guarda a falha ("PC manager is closed") e todos os envios seguintes falham */
+function send(obj,reliable){ const L=NET.lk; if(!L||!NET.lkReady||L.state!=="connected") return;
+  const reset=()=>{ try{ if(L.engine) L.engine.publisherConnectionPromise=undefined; }catch(_){} };
+  try{ const pr=L.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(obj)),{reliable:!!reliable}); if(pr&&pr.catch) pr.catch(reset); }catch(e){ reset(); } }
 
 /* ---------- gatas de las amigas ---------- */
 function nameTag(text){ const c=document.createElement("canvas"); c.width=256; c.height=64; const g=c.getContext("2d");
@@ -1596,6 +1606,7 @@ function onData(id,name,m){
       const ring=markerSprite(0x9fe0ff); ring.scale.set(1.2,1.2,1); ring.position.set(0,2.45,0); ring.visible=false; cat.root.add(ring);
       r={cat,tag,ring,nick:m.n||name||tr("Amiga","Friend"),lk:"",w:"",x:m.x,z:m.z,ry:m.r,sp:0,si:0,te:m.te,shadow:blob(1.6)}; NET.remotes.set(id,r); cat.root.position.set(m.x,H(m.x,m.z),m.z);
       if(!NET.known.has(id)){ NET.known.add(id); } }
+    if(r.te!==m.te||r.teWarn===undefined){ r.teWarn=true; if(m.te!==S.terr&&CH[m.te]) toast(tr(`${esc(r.nick)} está en ${CH[m.te].short}. Para veros, id al mismo territorio (Menú → Mi sala → Ir con ella).`,`${esc(r.nick)} is in ${CH[m.te].short}. To see each other, go to the same territory (Menu → My room → Go to her).`),"",6000,tr("Sala","Room")); }
     r.tx=m.x; r.tz=m.z; r.ry=m.r; r.sp=m.s; r.si=m.si; r.te=m.te; r.seen=performance.now();
     const lk=JSON.stringify(m.lk||{}), w=JSON.stringify(m.w||{}); if(lk!==r.lk){ r.lk=lk; r.cat.setLook(m.lk||DEF.look); } if(w!==r.w){ r.w=w; dress(r.cat,m.w||{}); } }
   else if(m.t==="say"){ const txt=PHRASES[m.i]; if(txt){ toast(`<b>${esc(name||tr("Amiga","Friend"))}:</b> ${txt}`,"good",3500,tr("Sala","Room")); play("blip"); } } }
