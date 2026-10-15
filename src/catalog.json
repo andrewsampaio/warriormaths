@@ -198,6 +198,18 @@
    "kind": "consumable",
    "name": "Hierba del valor"
   },
+  "build:robusto": {
+   "price": 40,
+   "slot": "look",
+   "kind": "look",
+   "name": "build:robusto"
+  },
+  "build:grande": {
+   "price": 60,
+   "slot": "look",
+   "kind": "look",
+   "name": "build:grande"
+  },
   "fur:plata": {
    "price": 40,
    "slot": "look",
@@ -255,7 +267,10 @@
   "eyes:verde",
   "eyes:ambar",
   "eyes:azul",
-  "eyes:avellana"
+  "eyes:avellana",
+  "build:comun",
+  "build:esbelto",
+  "build:compacto"
  ],
  "gifts": [
   "fur:azul",

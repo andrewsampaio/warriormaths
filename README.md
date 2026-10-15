@@ -64,3 +64,7 @@ npm install
 DATABASE_URL=postgres://gatos:gatos@localhost:5432/gatos JWT_SECRET=$(openssl rand -hex 32) \
 LIVEKIT_URL=wss://... LIVEKIT_API_KEY=... LIVEKIT_API_SECRET=... npm start
 ```
+
+## Créditos
+
+Modelo 3D do gato: baseado em "Hawkfrost" de cafnir (https://sketchfab.com/3d-models/hawkfrost-dcdd818c696d409e8b9090f55d353519), licença CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/). Modificado: esqueleto simplificado, malha reduzida, textura de cor substituída por pelagens procedurais, variações de corpo e animação próprias. O crédito também aparece no Menú do jogo.
